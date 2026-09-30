@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>핑퐁 게임</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .game-container {
+            text-align: center;
+        }
+
+        h1 {
+            color: #eee;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: center;
+            gap: 80px;
+            margin-bottom: 15px;
+        }
+
+        .score {
+            color: #fff;
+            font-size: 3em;
+            font-weight: bold;
+            min-width: 80px;
+        }
+
+        .score-label {
+            color: #aaa;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        canvas {
+            border: 3px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+            background: #0f0f23;
+        }
+
+        .controls-info {
+            color: #888;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+
+        .controls-info span {
+            color: #ccc;
+            background: #333;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 0 3px;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px 60px;
+            border-radius: 15px;
+            border: 2px solid #555;
+            display: none;
+        }
+
+        .game-over h2 {
+            color: #fff;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .game-over button {
+            padding: 12px 30px;
+            font-size: 1.1em;
+            background: #4a9eff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .game-over button:hover {
+            background: #357abd;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>핑퐁 게임</h1>
+        <div class="score-board">
+            <div>
+                <div class="score" id="score1">0</div>
+                <div class="score-label">플레이어 1</div>
+            </div>
+            <div>
+                <div class="score" id="score2">0</div>
+                <div class="score-label">플레이어 2</div>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div class="controls-info">
+            플레이어 1: <span>W</span> <span>S</span> &nbsp;|&nbsp; 플레이어 2: <span>↑</span> <span>↓</span> &nbsp;|&nbsp; <span>Space</span> 시작/일시정지
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2 id="winnerText"></h2>
+        <button onclick="restartGame()">다시 시작</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 게임 상태
+        let gameRunning = false;
+        let gamePaused = false;
+        let score1 = 0;
+        let score2 = 0;
+        const WINNING_SCORE = 5;
+
+        // 패들 설정
+        const paddleWidth = 12;
+        const paddleHeight = 90;
+        const paddleSpeed = 8;
+
+        const paddle1 = {
+            x: 20,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            dy: 0
+        };
+
+        const paddle2 = {
+            x: canvas.width - 20 - paddleWidth,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            dy: 0
+        };
+
+        // 공 설정
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 8,
+            speed: 6,
+            dx: 6,
+            dy: 3
+        };
+
+        // 키 입력 상태
+        const keys = {};
+
+        // 이벤트 리스너
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') {
+                e.preventDefault();
+                toggleGame();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function toggleGame() {
+            if (!gameRunning) {
+                gameRunning = true;
+                gamePaused = false;
+                document.getElementById('gameOver').style.display = 'none';
+            } else {
+                gamePaused = !gamePaused;
+            }
+        }
+
+        function resetBall(direction) {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speed = 6;
+            ball.dx = ball.speed * direction;
+            ball.dy = (Math.random() - 0.5) * 6;
+        }
+
+        function resetGame() {
+            score1 = 0;
+            score2 = 0;
+            updateScore();
+            paddle1.y = canvas.height / 2 - paddleHeight / 2;
+            paddle2.y = canvas.height / 2 - paddleHeight / 2;
+            resetBall(1);
+        }
+
+        function restartGame() {
+            resetGame();
+            gameRunning = true;
+            gamePaused = false;
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        function updateScore() {
+            document.getElementById('score1').textContent = score1;
+            document.getElementById('score2').textContent = score2;
+        }
+
+        function drawNet() {
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawPaddle(paddle, color) {
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            ctx.shadowBlur = 0;
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.closePath();
+        }
+
+        function update() {
+            if (!gameRunning || gamePaused) return;
+
+            // 패들 이동
+            if (keys['w']) paddle1.y -= paddleSpeed;
+            if (keys['s']) paddle1.y += paddleSpeed;
+            if (keys['arrowup']) paddle2.y -= paddleSpeed;
+            if (keys['arrowdown']) paddle2.y += paddleSpeed;
+
+            // 패들 경계 체크
+            paddle1.y = Math.max(0, Math.min(canvas.height - paddle1.height, paddle1.y));
+            paddle2.y = Math.max(0, Math.min(canvas.height - paddle2.height, paddle2.y));
+
+            // 공 이동
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // 공 위아래 벽 충돌
+            if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= canvas.height) {
+                ball.dy = -ball.dy;
+            }
+
+            // 공과 패들 충돌
+            // 왼쪽 패들
+            if (ball.x - ball.radius <= paddle1.x + paddle1.width &&
+                ball.x + ball.radius >= paddle1.x &&
+                ball.y >= paddle1.y &&
+                ball.y <= paddle1.y + paddle1.height) {
+                
+                let collidePoint = (ball.y - (paddle1.y + paddle1.height / 2)) / (paddle1.height / 2);
+                let angle = collidePoint * (Math.PI / 4); // 최대 45도
+                
+                ball.speed += 0.3;
+                ball.dx = ball.speed * Math.cos(angle);
+                ball.dy = ball.speed * Math.sin(angle);
+                ball.x = paddle1.x + paddle1.width + ball.radius;
+            }
+
+            // 오른쪽 패들
+            if (ball.x + ball.radius >= paddle2.x &&
+                ball.x - ball.radius <= paddle2.x + paddle2.width &&
+                ball.y >= paddle2.y &&
+                ball.y <= paddle2.y + paddle2.height) {
+                
+                let collidePoint = (ball.y - (paddle2.y + paddle2.height / 2)) / (paddle2.height / 2);
+                let angle = collidePoint * (Math.PI / 4);
+                
+                ball.speed += 0.3;
+                ball.dx = -ball.speed * Math.cos(angle);
+                ball.dy = ball.speed * Math.sin(angle);
+                ball.x = paddle2.x - ball.radius;
+            }
+
+            // 점수 계산
+            if (ball.x - ball.radius <= 0) {
+                score2++;
+                updateScore();
+                if (score2 >= WINNING_SCORE) {
+                    endGame('플레이어 2');
+                } else {
+                    resetBall(1);
+                }
+            }
+
+            if (ball.x + ball.radius >= canvas.width) {
+                score1++;
+                updateScore();
+                if (score1 >= WINNING_SCORE) {
+                    endGame('플레이어 1');
+                } else {
+                    resetBall(-1);
+                }
+            }
+        }
+
+        function endGame(winner) {
+            gameRunning = false;
+            document.getElementById('winnerText').textContent = winner + ' 승리!';
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function draw() {
+            // 화면 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 배경
+            ctx.fillStyle = '#0f0f23';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawNet();
+            drawPaddle(paddle1, '#4a9eff');
+            drawPaddle(paddle2, '#ff6b6b');
+            drawBall();
+
+            // 일시정지 메시지
+            if (gamePaused) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 36px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText('일시정지', canvas.width / 2, canvas.height / 2);
+                ctx.font = '18px Segoe UI';
+                ctx.fillText('Space를 눌러 계속', canvas.width / 2, canvas.height / 2 + 40);
+            }
+
+            // 시작 전 메시지
+            if (!gameRunning && !gamePaused && score1 === 0 && score2 === 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 28px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText('Space를 눌러 시작', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 게임 시작
+        gameLoop();
+    </script>
+</body>
+</html>

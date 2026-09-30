@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>탈출: 어둠 속의 그것</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        background: #000;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        color: #ccc;
+        overflow: hidden;
+        user-select: none;
+    }
+
+    .game-wrapper { position: relative; }
+
+    canvas {
+        display: block;
+        background: #000;
+        border: 2px solid #1a1a1a;
+        cursor: crosshair;
+    }
+
+    /* HUD */
+    .hud {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        pointer-events: none;
+        font-size: 0.85em;
+    }
+
+    .hud-left { display: flex; flex-direction: column; gap: 8px; }
+
+    .hud-item { display: flex; align-items: center; gap: 8px; }
+
+    .hud-label { color: #666; width: 52px; }
+
+    .meter {
+        width: 140px;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .meter-fill { height: 100%; transition: width 0.15s linear; }
+    .battery-fill { background: linear-gradient(90deg, #6b5b2a, #d4b551); }
+    .stamina-fill { background: linear-gradient(90deg, #2a4a5b, #4a90a8); }
+
+    .keys-display {
+        color: #b8a04a;
+        font-size: 1.05em;
+        letter-spacing: 3px;
+    }
+
+    .hint {
+        position: absolute;
+        bottom: 16px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #444;
+        font-size: 0.8em;
+        pointer-events: none;
+    }
+
+    .hint span {
+        background: rgba(255, 255, 255, 0.06);
+        padding: 2px 8px;
+        border-radius: 4px;
+        color: #777;
+        margin: 0 2px;
+    }
+
+    /* 오버레이 공통 */
+    .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 40px;
+        background: rgba(0, 0, 0, 0.92);
+        z-index: 10;
+    }
+
+    .overlay.gone { display: none; }
+
+    .overlay h1 {
+        font-size: 2.8em;
+        color: #8b1a1a;
+        letter-spacing: 6px;
+        margin-bottom: 8px;
+        text-shadow: 0 0 30px rgba(139, 26, 26, 0.5);
+    }
+
+    .overlay .sub {
+        color: #555;
+        letter-spacing: 3px;
+        margin-bottom: 32px;
+        font-size: 0.9em;
+    }
+
+    .overlay p { color: #888; line-height: 1.9; max-width: 480px; font-size: 0.92em; }
+
+    .btn {
+        margin-top: 30px;
+        padding: 14px 42px;
+        background: transparent;
+        border: 1px solid #5a1a1a;
+        color: #a83232;
+        font-size: 1em;
+        letter-spacing: 3px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-family: inherit;
+    }
+
+    .btn:hover {
+        background: #5a1a1a;
+        color: #ddd;
+        box-shadow: 0 0 24px rgba(139, 26, 26, 0.4);
+    }
+
+    .rules {
+        margin-top: 28px;
+        text-align: left;
+        border-left: 2px solid #2a2a2a;
+        padding-left: 18px;
+        color: #666;
+        line-height: 2;
+        font-size: 0.85em;
+    }
+
+    .rules b { color: #b8a04a; font-weight: normal; }
+
+    /* 게임오버 */
+    #deathScreen h1 { animation: deathGlow 1.4s ease-in-out infinite alternate; }
+
+    @keyframes deathGlow {
+        from { text-shadow: 0 0 20px rgba(139, 26, 26, 0.4); }
+        to { text-shadow: 0 0 50px rgba(200, 30, 30, 0.8); }
+    }
+
+    .stat-row { color: #666; margin-top: 6px; font-size: 0.88em; }
+    .stat-row b { color: #999; font-weight: normal; }
+
+    /* 점프스케어 */
+    #jumpscare {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        background: #6b0000;
+        z-index: 20;
+        font-size: 18em;
+        line-height: 1;
+    }
+
+    #jumpscare.show {
+        display: flex;
+        animation: scareFlash 0.45s steps(2, end) 3;
+    }
+
+    @keyframes scareFlash {
+        0%, 100% { background: #6b0000; transform: scale(1); }
+        50% { background: #000; transform: scale(1.12); }
+    }
+
+    /* 승리 */
+    #winScreen h1 { color: #b8a04a; text-shadow: 0 0 30px rgba(184, 160, 74, 0.4); }
+    #winScreen .btn { border-color: #5a4a1a; color: #b8a04a; }
+    #winScreen .btn:hover { background: #5a4a1a; }
+</style>
+</head>
+<body>
+<div class="game-wrapper" id="wrapper">
+    <canvas id="game" width="900" height="560"></canvas>
+
+    <div class="hud">
+        <div class="hud-left">
+            <div class="hud-item">
+                <span class="hud-label">배터리</span>
+                <div class="meter"><div class="meter-fill battery-fill" id="batteryFill" style="width:100%"></div></div>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">체력</span>
+                <div class="meter"><div class="meter-fill stamina-fill" id="staminaFill" style="width:100%"></div></div>
+            </div>
+        </div>
+        <div class="keys-display" id="keysDisplay">🔑 0 / 5</div>
+    </div>
+
+    <div class="hint">
+        <span>WASD</span> 이동 &nbsp; <span>마우스</span> 손전등 &nbsp; <span>Shift</span> 달리기
+    </div>
+
+    <!-- 시작 화면 -->
+    <div class="overlay" id="startScreen">
+        <h1>탈 출</h1>
+        <div class="sub">어둠 속의 그것</div>
+        <p>정신을 차려보니 끝이 보이지 않는 미로 속입니다.<br>
+        손전등 하나뿐인 어둠 속에서, 무언가가 당신을 찾고 있습니다.</p>
+        <div class="rules">
+            흩어진 <b>열쇠 5개</b>를 모두 찾으세요<br>
+            <b>출구</b>는 열쇠를 모두 모으면 열립니다<br>
+            <b>배터리</b>를 주워 손전등을 유지하세요<br>
+            <b>그것</b>에게 닿으면 모든 것이 끝납니다
+        </div>
+        <button class="btn" onclick="startGame()">들어가기</button>
+    </div>
+
+    <!-- 사망 화면 -->
+    <div class="overlay gone" id="deathScreen">
+        <h1>잡 혔 다</h1>
+        <div class="sub">당신의 이야기는 여기서 끝났습니다</div>
+        <div class="stat-row">모은 열쇠 <b id="deathKeys">0 / 5</b></div>
+        <div class="stat-row">생존 시간 <b id="deathTime">0초</b></div>
+        <button class="btn" onclick="restart()">다시 시도</button>
+    </div>
+
+    <!-- 승리 화면 -->
+    <div class="overlay gone" id="winScreen">
+        <h1>탈 출 성 공</h1>
+        <div class="sub">문이 닫히는 소리와 함께, 비명이 멀어졌습니다</div>
+        <div class="stat-row">탈출 시간 <b id="winTime">0초</b></div>
+        <div class="stat-row">남은 배터리 <b id="winBattery">0%</b></div>
+        <button class="btn" onclick="restart()">다시 도전</button>
+    </div>
+
+    <!-- 점프스케어 -->
+    <div id="jumpscare">😱</div>
+</div>
+
+<script>
+// ==================== 설정 ====================
+const TILE = 52;
+const COLS = 27;   // 홀수
+const ROWS = 21;   // 홀수
+const VIEW_W = 900;
+const VIEW_H = 560;
+
+const PLAYER_R = 11;
+const WALK_SPEED = 128;
+const RUN_SPEED = 205;
+const CONE_HALF = 0.42;          // 손전등 반각(라디안)
+const CONE_MAX = 330;            // 배터리 100%일 때 사거리
+const AMBIENT_R = 62;            // 손전등과 무관한 최소 시야
+const TOTAL_KEYS = 5;
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// 암막용 오프스크린 캔버스
+const dark = document.createElement('canvas');
+dark.width = VIEW_W;
+dark.height = VIEW_H;
+const dctx = dark.getContext('2d');
+
+// ==================== 상태 ====================
+let grid = [];
+let player, stalker, keys, batteries, exitCell;
+let keysHeld = 0;
+let battery = 100;
+let stamina = 100;
+let elapsed = 0;
+let running = false;
+let aim = 0;
+let camX = 0, camY = 0;
+let flicker = 1;
+let flashOn = true;
+let shake = 0;
+let dustMotes = [];
+let audioCtx = null;
+let lastBeat = 0;
+
+const input = {};
+
+// ==================== 미로 생성 ====================
+function buildMaze() {
+    grid = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
+
+    const stack = [[1, 1]];
+    grid[1][1] = 0;
+
+    while (stack.length) {
+        const [cx, cy] = stack[stack.length - 1];
+        const dirs = [[2, 0], [-2, 0], [0, 2], [0, -2]].sort(() => Math.random() - 0.5);
+        let carved = false;
+
+        for (const [dx, dy] of dirs) {
+            const nx = cx + dx, ny = cy + dy;
+            if (nx > 0 && nx < COLS - 1 && ny > 0 && ny < ROWS - 1 && grid[ny][nx] === 1) {
+                grid[ny][nx] = 0;
+                grid[cy + dy / 2][cx + dx / 2] = 0;
+                stack.push([nx, ny]);
+                carved = true;
+                break;
+            }
+        }
+        if (!carved) stack.pop();
+    }
+
+    // 막다른 길 일부를 열어 순환 경로를 만든다 (추격에서 도망칠 여지)
+    for (let i = 0; i < 40; i++) {
+        const x = 1 + Math.floor(Math.random() * (COLS - 2));
+        const y = 1 + Math.floor(Math.random() * (ROWS - 2));
+        if (grid[y][x] === 1 && x > 0 && x < COLS - 1 && y > 0 && y < ROWS - 1) grid[y][x] = 0;
+    }
+}
+
+function floorCells() {
+    const out = [];
+    for (let y = 1; y < ROWS - 1; y++)
+        for (let x = 1; x < COLS - 1; x++)
+            if (grid[y][x] === 0) out.push({ x, y });
+    return out;
+}
+
+function center(cell) {
+    return { x: cell.x * TILE + TILE / 2, y: cell.y * TILE + TILE / 2 };
+}
+
+function isWall(px, py) {
+    const cx = Math.floor(px / TILE);
+    const cy = Math.floor(py / TILE);
+    if (cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) return true;
+    return grid[cy][cx] === 1;
+}
+
+function blocked(px, py) {
+    return isWall(px - PLAYER_R, py - PLAYER_R) || isWall(px + PLAYER_R, py - PLAYER_R) ||
+           isWall(px - PLAYER_R, py + PLAYER_R) || isWall(px + PLAYER_R, py + PLAYER_R);
+}
+
+// ==================== 초기화 ====================
+function setup() {
+    buildMaze();
+
+    const cells = floorCells();
+    exitCell = { x: 1, y: 1 };
+    grid[1][1] = 0;
+
+    const start = cells.reduce((best, c) => {
+        const d = Math.hypot(c.x - exitCell.x, c.y - exitCell.y);
+        return d > best.d ? { d, c } : best;
+    }, { d: -1, c: cells[0] }).c;
+
+    player = { ...center(start), vx: 0, vy: 0 };
+
+    // 열쇠: 플레이어에게서 충분히 떨어진 칸에 흩어 놓는다
+    const pool = cells.filter(c =>
+        Math.hypot(c.x - start.x, c.y - start.y) > 4 &&
+        Math.hypot(c.x - exitCell.x, c.y - exitCell.y) > 2
+    ).sort(() => Math.random() - 0.5);
+
+    keys = pool.slice(0, TOTAL_KEYS).map(c => ({ ...center(c), taken: false, bob: Math.random() * 6 }));
+    batteries = pool.slice(TOTAL_KEYS, TOTAL_KEYS + 6).map(c => ({ ...center(c), taken: false }));
+
+    // 추격자는 플레이어 반대편에서 출발
+    const far = cells.reduce((best, c) => {
+        const d = Math.hypot(c.x - start.x, c.y - start.y);
+        return d > best.d ? { d, c } : best;
+    }, { d: -1, c: cells[0] }).c;
+
+    stalker = { ...center(far), speed: 96, path: [], repathIn: 0 };
+
+    keysHeld = 0;
+    battery = 100;
+    stamina = 100;
+    elapsed = 0;
+    shake = 0;
+    aim = 0;
+
+    dustMotes = Array.from({ length: 70 }, () => ({
+        x: Math.random() * COLS * TILE,
+        y: Math.random() * ROWS * TILE,
+        r: Math.random() * 1.4 + 0.4,
+        dx: (Math.random() - 0.5) * 8,
+        dy: (Math.random() - 0.5) * 8
+    }));
+
+    updateHud();
+}
+
+// ==================== 추격자 AI (BFS) ====================
+function bfsPath(from, to) {
+    const key = c => c.y * COLS + c.x;
+    const queue = [from];
+    const prev = new Map([[key(from), null]]);
+
+    while (queue.length) {
+        const cur = queue.shift();
+        if (cur.x === to.x && cur.y === to.y) {
+            const path = [];
+            let node = cur;
+            while (node) {
+                path.unshift(node);
+                node = prev.get(key(node));
+            }
+            return path;
+        }
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = cur.x + dx, ny = cur.y + dy;
+            if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+            if (grid[ny][nx] === 1) continue;
+            const nk = ny * COLS + nx;
+            if (prev.has(nk)) continue;
+            prev.set(nk, cur);
+            queue.push({ x: nx, y: ny });
+        }
+    }
+    return [];
+}
+
+function moveStalker(dt) {
+    stalker.repathIn -= dt;
+
+    if (stalker.repathIn <= 0) {
+        stalker.repathIn = 0.45;
+        const from = { x: Math.floor(stalker.x / TILE), y: Math.floor(stalker.y / TILE) };
+        const to = { x: Math.floor(player.x / TILE), y: Math.floor(player.y / TILE) };
+        stalker.path = bfsPath(from, to).slice(1);
+    }
+
+    if (!stalker.path.length) return;
+
+    const target = center(stalker.path[0]);
+    const dx = target.x - stalker.x;
+    const dy = target.y - stalker.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 4) {
+        stalker.path.shift();
+        return;
+    }
+
+    stalker.x += (dx / dist) * stalker.speed * dt;
+    stalker.y += (dy / dist) * stalker.speed * dt;
+}
+
+// ==================== 시야 폴리곤 ====================
+function castRay(ox, oy, angle, maxLen) {
+    const step = 5;
+    const sx = Math.cos(angle) * step;
+    const sy = Math.sin(angle) * step;
+    let x = ox, y = oy, travelled = 0;
+
+    while (travelled < maxLen) {
+        x += sx;
+        y += sy;
+        travelled += step;
+        if (isWall(x, y)) return travelled - step;
+    }
+    return maxLen;
+}
+
+function lightPolygon(ox, oy, from, to, rays, maxLen) {
+    const pts = [];
+    for (let i = 0; i <= rays; i++) {
+        const a = from + (to - from) * (i / rays);
+        const d = castRay(ox, oy, a, maxLen);
+        pts.push([ox + Math.cos(a) * d, oy + Math.sin(a) * d]);
+    }
+    return pts;
+}
+
+// ==================== 사운드 ====================
+function initAudio() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+    }
+}
+
+function heartbeat(intensity) {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(58, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.16);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.28 * intensity, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.25);
+}
+
+function pickupSound(high) {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(high ? 880 : 520, t);
+    osc.frequency.exponentialRampToValueAtTime(high ? 1320 : 700, t + 0.1);
+    gain.gain.setValueAtTime(0.14, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.32);
+}
+
+function screamSound() {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const len = 1.1;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * len, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+    const src = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1200, t);
+    filter.frequency.exponentialRampToValueAtTime(240, t + len);
+    gain.gain.setValueAtTime(0.32, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.buffer = buf;
+    src.connect(filter).connect(gain).connect(audioCtx.destination);
+    src.start(t);
+}
+
+// ==================== 업데이트 ====================
+function update(dt) {
+    elapsed += dt;
+
+    // 이동
+    const wantRun = input['shift'] && stamina > 1;
+    let dx = 0, dy = 0;
+    if (input['a'] || input['arrowleft']) dx -= 1;
+    if (input['d'] || input['arrowright']) dx += 1;
+    if (input['w'] || input['arrowup']) dy -= 1;
+    if (input['s'] || input['arrowdown']) dy += 1;
+
+    const moving = dx !== 0 || dy !== 0;
+    if (moving) {
+        const len = Math.hypot(dx, dy);
+        dx /= len;
+        dy /= len;
+        const speed = wantRun ? RUN_SPEED : WALK_SPEED;
+        const nx = player.x + dx * speed * dt;
+        const ny = player.y + dy * speed * dt;
+        if (!blocked(nx, player.y)) player.x = nx;
+        if (!blocked(player.x, ny)) player.y = ny;
+    }
+
+    // 체력(달리기 자원)
+    if (wantRun && moving) stamina = Math.max(0, stamina - 24 * dt);
+    else stamina = Math.min(100, stamina + 13 * dt);
+
+    // 배터리
+    battery = Math.max(0, battery - 1.55 * dt);
+
+    // 추격자 강화
+    stalker.speed = 96 + Math.min(58, elapsed * 0.85) + keysHeld * 5;
+    moveStalker(dt);
+
+    // 열쇠 획득
+    for (const k of keys) {
+        if (!k.taken && Math.hypot(k.x - player.x, k.y - player.y) < 26) {
+            k.taken = true;
+            keysHeld++;
+            pickupSound(true);
+            updateHud();
+        }
+    }
+
+    // 배터리 획득
+    for (const b of batteries) {
+        if (!b.taken && Math.hypot(b.x - player.x, b.y - player.y) < 26) {
+            b.taken = true;
+            battery = Math.min(100, battery + 34);
+            pickupSound(false);
+            updateHud();
+        }
+    }
+
+    // 출구
+    const ex = center(exitCell);
+    if (keysHeld >= TOTAL_KEYS && Math.hypot(ex.x - player.x, ex.y - player.y) < 30) {
+        win();
+        return;
+    }
+
+    // 추격자 접촉
+    const threat = Math.hypot(stalker.x - player.x, stalker.y - player.y);
+    if (threat < PLAYER_R + 14) {
+        die();
+        return;
+    }
+
+    // 심장 박동: 가까울수록 빠르게
+    if (threat < 420) {
+        const closeness = 1 - threat / 420;
+        const interval = 1.15 - closeness * 0.8;
+        if (elapsed - lastBeat > interval) {
+            lastBeat = elapsed;
+            heartbeat(0.35 + closeness * 0.65);
+        }
+        shake = Math.max(shake, closeness * 5);
+    }
+    shake *= 0.9;
+
+    // 손전등 깜빡임 (배터리가 낮을 때 심해진다)
+    const instability = battery < 30 ? (30 - battery) / 30 : 0;
+    const dip = Math.random() < instability * 0.22 ? 0.45 : 0;
+    flicker = Math.max(0.3, 1 - Math.random() * 0.08 - dip);
+    flashOn = battery > 0;
+
+    // 먼지
+    for (const m of dustMotes) {
+        m.x += m.dx * dt;
+        m.y += m.dy * dt;
+        if (m.x < 0) m.x += COLS * TILE;
+        if (m.x > COLS * TILE) m.x -= COLS * TILE;
+        if (m.y < 0) m.y += ROWS * TILE;
+        if (m.y > ROWS * TILE) m.y -= ROWS * TILE;
+    }
+
+    // 카메라
+    camX = Math.max(0, Math.min(COLS * TILE - VIEW_W, player.x - VIEW_W / 2));
+    camY = Math.max(0, Math.min(ROWS * TILE - VIEW_H, player.y - VIEW_H / 2));
+
+    updateHud();
+}
+
+// ==================== 렌더 ====================
+function draw() {
+    const ox = (Math.random() - 0.5) * shake;
+    const oy = (Math.random() - 0.5) * shake;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.translate(-camX + ox, -camY + oy);
+
+    const c0 = Math.max(0, Math.floor(camX / TILE));
+    const c1 = Math.min(COLS - 1, Math.ceil((camX + VIEW_W) / TILE));
+    const r0 = Math.max(0, Math.floor(camY / TILE));
+    const r1 = Math.min(ROWS - 1, Math.ceil((camY + VIEW_H) / TILE));
+
+    // 바닥과 벽
+    for (let y = r0; y <= r1; y++) {
+        for (let x = c0; x <= c1; x++) {
+            const px = x * TILE, py = y * TILE;
+            const noise = ((x * 73856093) ^ (y * 19349663)) % 11;
+
+            if (grid[y][x] === 1) {
+                ctx.fillStyle = `rgb(${30 + noise}, ${27 + noise}, ${26 + noise})`;
+                ctx.fillRect(px, py, TILE, TILE);
+                ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px + 1, py + 1, TILE - 2, TILE - 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.03)';
+                ctx.fillRect(px + 3, py + 3, TILE - 6, 3);
+            } else {
+                ctx.fillStyle = `rgb(${17 + noise * 0.5}, ${16 + noise * 0.5}, ${19 + noise * 0.5})`;
+                ctx.fillRect(px, py, TILE, TILE);
+                if (noise % 4 === 0) {
+                    ctx.fillStyle = 'rgba(70,60,50,0.12)';
+                    ctx.fillRect(px + 8 + noise, py + 14 + noise, 9, 6);
+                }
+            }
+        }
+    }
+
+    // 출구
+    const ex = center(exitCell);
+    const open = keysHeld >= TOTAL_KEYS;
+    const pulse = 0.55 + 0.45 * Math.sin(elapsed * 3);
+    ctx.fillStyle = open ? `rgba(120, 200, 140, ${0.35 + pulse * 0.5})` : 'rgba(90, 40, 40, 0.5)';
+    ctx.fillRect(ex.x - 17, ex.y - 24, 34, 48);
+    ctx.strokeStyle = open ? `rgba(180, 255, 200, ${pulse})` : 'rgba(140, 60, 60, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(ex.x - 17, ex.y - 24, 34, 48);
+    ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(open ? '🚪' : '🔒', ex.x, ex.y);
+
+    // 먼지
+    ctx.fillStyle = 'rgba(200, 200, 190, 0.18)';
+    for (const m of dustMotes) {
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 열쇠
+    for (const k of keys) {
+        if (k.taken) continue;
+        const bob = Math.sin(elapsed * 2.2 + k.bob) * 3;
+        ctx.font = '22px serif';
+        ctx.fillText('🔑', k.x, k.y + bob);
+    }
+
+    // 배터리
+    for (const b of batteries) {
+        if (b.taken) continue;
+        ctx.font = '18px serif';
+        ctx.fillText('🔋', b.x, b.y);
+    }
+
+    // 추격자
+    ctx.save();
+    ctx.translate(stalker.x, stalker.y);
+    const sway = Math.sin(elapsed * 6) * 0.06;
+    ctx.rotate(sway);
+    ctx.fillStyle = '#0a0a0c';
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 15, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111114';
+    ctx.beginPath();
+    ctx.arc(0, -14, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 플레이어
+    ctx.fillStyle = '#3a3f4a';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, PLAYER_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200, 210, 230, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // ===== 손전등 / 암막 처리 =====
+    const px = player.x - camX + ox;
+    const py = player.y - camY + oy;
+    const coneLen = flashOn ? CONE_MAX * (0.45 + 0.55 * (battery / 100)) * flicker : 0;
+
+    const toScreen = ([x, y]) => [x - camX + ox, y - camY + oy];
+
+    const ambientPts = lightPolygon(player.x, player.y, 0, Math.PI * 2, 48, AMBIENT_R).map(toScreen);
+    const conePts = coneLen > 20
+        ? lightPolygon(player.x, player.y, aim - CONE_HALF, aim + CONE_HALF, 64, coneLen).map(toScreen)
+        : null;
+
+    dctx.setTransform(1, 0, 0, 1, 0, 0);
+    dctx.globalCompositeOperation = 'source-over';
+    dctx.clearRect(0, 0, VIEW_W, VIEW_H);
+    dctx.fillStyle = 'rgba(0, 0, 0, 0.97)';
+    dctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    dctx.globalCompositeOperation = 'destination-out';
+
+    // 주변 최소 시야
+    dctx.save();
+    dctx.beginPath();
+    ambientPts.forEach(([x, y], i) => i === 0 ? dctx.moveTo(x, y) : dctx.lineTo(x, y));
+    dctx.closePath();
+    dctx.clip();
+    const ag = dctx.createRadialGradient(px, py, 0, px, py, AMBIENT_R);
+    ag.addColorStop(0, 'rgba(0,0,0,1)');
+    ag.addColorStop(0.6, 'rgba(0,0,0,0.85)');
+    ag.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = ag;
+    dctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    dctx.restore();
+
+    // 손전등 원뿔
+    if (conePts) {
+        dctx.save();
+        dctx.beginPath();
+        dctx.moveTo(px, py);
+        conePts.forEach(([x, y]) => dctx.lineTo(x, y));
+        dctx.closePath();
+        dctx.clip();
+        const cg = dctx.createRadialGradient(px, py, 0, px, py, coneLen);
+        cg.addColorStop(0, 'rgba(0,0,0,1)');
+        cg.addColorStop(0.7, 'rgba(0,0,0,1)');
+        cg.addColorStop(1, 'rgba(0,0,0,0)');
+        dctx.fillStyle = cg;
+        dctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        dctx.restore();
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(dark, 0, 0);
+
+    // 손전등 빛 번짐
+    if (conePts) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        conePts.forEach(([x, y]) => ctx.lineTo(x, y));
+        ctx.closePath();
+        ctx.clip();
+        const wg = ctx.createRadialGradient(px, py, 0, px, py, coneLen);
+        wg.addColorStop(0, 'rgba(255, 226, 160, 0.26)');
+        wg.addColorStop(0.5, 'rgba(255, 210, 140, 0.11)');
+        wg.addColorStop(1, 'rgba(255, 200, 120, 0)');
+        ctx.fillStyle = wg;
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        ctx.restore();
+    }
+
+    // 어둠 속에서 빛나는 눈
+    const threat = Math.hypot(stalker.x - player.x, stalker.y - player.y);
+    if (threat < 400) {
+        const sx = stalker.x - camX + ox;
+        const sy = stalker.y - camY + oy - 16;
+        const glow = 0.25 + (1 - threat / 400) * 0.75;
+        ctx.fillStyle = `rgba(200, 30, 30, ${glow})`;
+        ctx.shadowColor = 'rgba(255, 40, 40, 0.9)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(sx - 4, sy, 2.2, 0, Math.PI * 2);
+        ctx.arc(sx + 4, sy, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // 위협 비네트
+    if (threat < 260) {
+        const intensity = (1 - threat / 260) * 0.5;
+        const vg = ctx.createRadialGradient(VIEW_W / 2, VIEW_H / 2, VIEW_H * 0.22, VIEW_W / 2, VIEW_H / 2, VIEW_H * 0.78);
+        vg.addColorStop(0, 'rgba(120, 0, 0, 0)');
+        vg.addColorStop(1, `rgba(120, 0, 0, ${intensity})`);
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+
+    // 필름 그레인
+    ctx.fillStyle = 'rgba(255,255,255,0.016)';
+    for (let i = 0; i < 40; i++) {
+        ctx.fillRect(Math.random() * VIEW_W, Math.random() * VIEW_H, 1.5, 1.5);
+    }
+}
+
+// ==================== HUD ====================
+function updateHud() {
+    document.getElementById('batteryFill').style.width = battery + '%';
+    document.getElementById('staminaFill').style.width = stamina + '%';
+    const disp = document.getElementById('keysDisplay');
+    disp.textContent = `🔑 ${keysHeld} / ${TOTAL_KEYS}`;
+    disp.style.color = keysHeld >= TOTAL_KEYS ? '#8ac88f' : '#b8a04a';
+}
+
+// ==================== 흐름 제어 ====================
+function startGame() {
+    initAudio();
+    document.getElementById('startScreen').classList.add('gone');
+    setup();
+    running = true;
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
+}
+
+function restart() {
+    document.getElementById('deathScreen').classList.add('gone');
+    document.getElementById('winScreen').classList.add('gone');
+    document.getElementById('jumpscare').classList.remove('show');
+    setup();
+    running = true;
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
+}
+
+function die() {
+    running = false;
+    screamSound();
+
+    const scare = document.getElementById('jumpscare');
+    scare.classList.add('show');
+
+    setTimeout(() => {
+        scare.classList.remove('show');
+        document.getElementById('deathKeys').textContent = `${keysHeld} / ${TOTAL_KEYS}`;
+        document.getElementById('deathTime').textContent = Math.floor(elapsed) + '초';
+        document.getElementById('deathScreen').classList.remove('gone');
+    }, 1400);
+}
+
+function win() {
+    running = false;
+    document.getElementById('winTime').textContent = Math.floor(elapsed) + '초';
+    document.getElementById('winBattery').textContent = Math.floor(battery) + '%';
+    document.getElementById('winScreen').classList.remove('gone');
+}
+
+// ==================== 루프 ====================
+let lastFrame = 0;
+
+function loop(now) {
+    if (!running) return;
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+    update(dt);
+    if (running) draw();
+    requestAnimationFrame(loop);
+}
+
+// ==================== 입력 ====================
+document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    input[k] = true;
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+});
+
+document.addEventListener('keyup', e => {
+    input[e.key.toLowerCase()] = false;
+});
+
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (VIEW_W / rect.width) + camX;
+    const my = (e.clientY - rect.top) * (VIEW_H / rect.height) + camY;
+    aim = Math.atan2(my - player.y, mx - player.x);
+});
+
+// 창 포커스를 잃으면 키 입력 초기화
+window.addEventListener('blur', () => {
+    for (const k in input) input[k] = false;
+});
+
+// 시작 화면 배경
+setup();
+draw();
+running = false;
+</script>
+</body>
+</html>

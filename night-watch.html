@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>야간 경비 - 세인트 마리아 요양원</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        background: #050506;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Consolas', 'Courier New', monospace;
+        color: #7a8a7a;
+        overflow: hidden;
+        user-select: none;
+    }
+
+    .shell { position: relative; width: 960px; }
+
+    .screen {
+        position: relative;
+        width: 960px;
+        height: 600px;
+        background: #000;
+        border: 3px solid #14161a;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    canvas { display: block; width: 100%; height: 100%; }
+
+    /* ── 상단 상태바 ── */
+    .topbar {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        padding: 10px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(180deg, rgba(0,0,0,0.85), rgba(0,0,0,0));
+        pointer-events: none;
+        font-size: 0.82em;
+        z-index: 3;
+    }
+
+    .clock {
+        font-size: 1.5em;
+        color: #c9d4c9;
+        letter-spacing: 2px;
+    }
+
+    .clock small { font-size: 0.5em; color: #4a5a4a; letter-spacing: 1px; }
+
+    .power-block { text-align: right; }
+
+    .power-num { font-size: 1.3em; color: #8fbf8f; letter-spacing: 1px; }
+    .power-num.warn { color: #d4a04a; }
+    .power-num.crit { color: #c94a4a; animation: blink 0.7s steps(2) infinite; }
+
+    @keyframes blink { 50% { opacity: 0.25; } }
+
+    .draw-bars { margin-top: 3px; letter-spacing: 2px; color: #3a4a3a; }
+    .draw-bars b { color: #8fbf8f; font-weight: normal; }
+
+    /* ── 하단 콘솔 ── */
+    .console {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1.35fr 1fr;
+        gap: 10px;
+    }
+
+    .panel {
+        background: #0a0c0e;
+        border: 1px solid #191d22;
+        border-radius: 3px;
+        padding: 10px;
+    }
+
+    .panel-title {
+        font-size: 0.68em;
+        color: #3d4a52;
+        letter-spacing: 2px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .btn-row { display: flex; gap: 6px; }
+
+    button {
+        flex: 1;
+        padding: 9px 4px;
+        background: #11151a;
+        border: 1px solid #22272e;
+        color: #5d6d72;
+        font-family: inherit;
+        font-size: 0.76em;
+        letter-spacing: 1px;
+        cursor: pointer;
+        border-radius: 2px;
+        transition: all 0.14s;
+    }
+
+    button:hover:not(:disabled) { background: #1a2028; color: #8a9a9a; }
+
+    button.on {
+        background: #2a3038;
+        border-color: #4a5a68;
+        color: #cfe0e0;
+        box-shadow: inset 0 0 12px rgba(120,180,200,0.12);
+    }
+
+    button.door-on {
+        background: #2a1f1f;
+        border-color: #6a3a3a;
+        color: #e0b0b0;
+    }
+
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .cam-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+
+    .cam-grid button { padding: 7px 2px; font-size: 0.7em; }
+
+    .cam-grid button.alert {
+        border-color: #7a2a2a;
+        color: #d08585;
+    }
+
+    /* ── 오버레이 ── */
+    .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 46px;
+        background: rgba(2,3,4,0.95);
+        z-index: 20;
+    }
+
+    .overlay.gone { display: none; }
+
+    .overlay h1 {
+        font-size: 2.1em;
+        color: #a03030;
+        letter-spacing: 8px;
+        margin-bottom: 6px;
+    }
+
+    .overlay .sub { color: #46524a; letter-spacing: 3px; font-size: 0.82em; margin-bottom: 26px; }
+
+    .overlay p { color: #6a7a72; line-height: 1.95; max-width: 520px; font-size: 0.86em; }
+
+    .brief {
+        margin-top: 22px;
+        text-align: left;
+        border-left: 2px solid #1e2428;
+        padding-left: 16px;
+        line-height: 2.05;
+        font-size: 0.8em;
+        color: #5e6e66;
+    }
+
+    .brief b { color: #9fb89f; font-weight: normal; }
+    .brief i { color: #b0763c; font-style: normal; }
+
+    .start-btn {
+        margin-top: 28px;
+        padding: 13px 44px;
+        background: transparent;
+        border: 1px solid #4a2020;
+        color: #a64545;
+        font-size: 0.92em;
+        letter-spacing: 4px;
+        flex: none;
+    }
+
+    .start-btn:hover { background: #4a2020; color: #e0c0c0; }
+
+    .stat { color: #5a6a62; margin-top: 6px; font-size: 0.84em; }
+    .stat b { color: #9fb09f; font-weight: normal; }
+
+    #winScreen h1 { color: #7fae7f; }
+    #winScreen .start-btn { border-color: #24401f; color: #7fae7f; }
+    #winScreen .start-btn:hover { background: #24401f; color: #dff0df; }
+
+    /* 점프스케어 */
+    #scare {
+        position: absolute;
+        inset: 0;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        background: #000;
+        z-index: 40;
+    }
+
+    #scare.show { display: flex; animation: scareShake 0.09s infinite; }
+
+    #scare canvas { width: 100%; height: 100%; }
+
+    @keyframes scareShake {
+        0%   { transform: translate(0, 0) scale(1.03); }
+        25%  { transform: translate(-9px, 5px) scale(1.06); }
+        50%  { transform: translate(7px, -6px) scale(1.02); }
+        75%  { transform: translate(-5px, -4px) scale(1.07); }
+        100% { transform: translate(6px, 7px) scale(1.03); }
+    }
+
+    .whisper {
+        position: absolute;
+        bottom: 46px;
+        left: 0; right: 0;
+        text-align: center;
+        color: #5a3a3a;
+        font-size: 0.8em;
+        letter-spacing: 3px;
+        z-index: 4;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.9s;
+    }
+
+    .whisper.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="shell">
+    <div class="screen">
+        <canvas id="view" width="960" height="600"></canvas>
+
+        <div class="topbar">
+            <div class="clock" id="clock">12:00 <small>AM</small></div>
+            <div class="power-block">
+                <div class="power-num" id="powerNum">전력 100%</div>
+                <div class="draw-bars" id="drawBars">사용량 <b>■</b>□□□□</div>
+            </div>
+        </div>
+
+        <div class="whisper" id="whisper"></div>
+
+        <!-- 시작 -->
+        <div class="overlay" id="startScreen">
+            <h1>야 간 경 비</h1>
+            <div class="sub">세인트 마리아 요양원 · 3층 감시실</div>
+            <p>폐원한 요양원의 야간 경비 첫 근무일입니다.<br>
+            전임자는 사흘째 출근하지 않았습니다.</p>
+            <div class="brief">
+                <b>오전 6시</b>까지 감시실에서 버티세요<br>
+                <b>CCTV</b>로 복도를 확인해 무엇이 다가오는지 파악하세요<br>
+                <b>양쪽 문</b>을 닫아 침입을 막을 수 있습니다<br>
+                <b>조명</b>으로 문 바로 앞을 비춰 확인하세요<br>
+                <i>전력은 한정되어 있습니다. 0%가 되면 문이 열립니다</i>
+            </div>
+            <button class="start-btn" onclick="startShift()">근무 시작</button>
+        </div>
+
+        <!-- 사망 -->
+        <div class="overlay gone" id="deathScreen">
+            <h1>근 무 종 료</h1>
+            <div class="sub" id="deathCause">문이 열려 있었습니다</div>
+            <div class="stat">버틴 시간 <b id="deathTime">12:00 AM</b></div>
+            <div class="stat">남은 전력 <b id="deathPower">0%</b></div>
+            <button class="start-btn" onclick="restart()">다시 근무</button>
+        </div>
+
+        <!-- 승리 -->
+        <div class="overlay gone" id="winScreen">
+            <h1>6 : 0 0 A M</h1>
+            <div class="sub">교대 시간입니다. 밖은 아직 어둡습니다</div>
+            <div class="stat">남은 전력 <b id="winPower">0%</b></div>
+            <div class="stat">문을 닫은 횟수 <b id="winDoors">0</b></div>
+            <div class="stat">막아낸 침입 <b id="winBlocks">0</b></div>
+            <button class="start-btn" onclick="restart()">한 번 더</button>
+        </div>
+
+        <!-- 점프스케어 -->
+        <div id="scare"><canvas id="scareCanvas" width="960" height="600"></canvas></div>
+    </div>
+
+    <div class="console">
+        <div class="panel">
+            <div class="panel-title">문 제어</div>
+            <div class="btn-row">
+                <button id="doorL" onclick="toggleDoor('L')">◀ 좌측 문</button>
+                <button id="doorR" onclick="toggleDoor('R')">우측 문 ▶</button>
+            </div>
+            <div class="panel-title" style="margin-top:12px">조명</div>
+            <div class="btn-row">
+                <button id="lightL" onclick="toggleLight('L')">◀ 좌측 등</button>
+                <button id="lightR" onclick="toggleLight('R')">우측 등 ▶</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">CCTV 채널</div>
+            <div class="cam-grid" id="camGrid"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">모니터</div>
+            <div class="btn-row">
+                <button id="camToggle" onclick="toggleCam()">CCTV 켜기</button>
+            </div>
+            <div class="panel-title" style="margin-top:12px">기록</div>
+            <div id="log" style="font-size:0.7em; line-height:1.75; color:#46524a; height:58px; overflow:hidden;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ══════════════ 설정 ══════════════
+const W = 960, H = 600;
+const SHIFT_SECONDS = 160;        // 12AM → 6AM
+const HOUR = SHIFT_SECONDS / 6;
+
+const DRAIN_IDLE  = 0.68;
+const DRAIN_CAM   = 0.52;
+const DRAIN_DOOR  = 1.34;
+const DRAIN_LIGHT = 0.98;
+
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d');
+const scareCanvas = document.getElementById('scareCanvas');
+const sctx = scareCanvas.getContext('2d');
+
+// ══════════════ 맵 ══════════════
+// 각 채널은 감시실까지의 경로상 한 지점
+const CAMS = [
+    { id: '1A', name: '1층 로비' },
+    { id: '1B', name: '동편 병실' },
+    { id: '2A', name: '중앙 계단' },
+    { id: '2B', name: '서편 병실' },
+    { id: '3A', name: '좌측 복도' },
+    { id: '3B', name: '우측 복도' }
+];
+
+// 두 존재의 접근 경로 (마지막 원소 다음이 문)
+const ROUTES = {
+    grandma: { side: 'L', label: '무언가', path: ['1A', '2A', '3A'] },
+    orderly: { side: 'R', label: '누군가', path: ['1B', '2B', '3B'] }
+};
+
+// ══════════════ 상태 ══════════════
+let power, clockT, running, camOn, activeCam;
+let doors, lights, entities, logLines;
+let doorCloses, blocks, scareTimer, whisperT;
+let noiseSeed = 0;
+let zeroPowerT = -1;
+let audioCtx = null;
+let lastFrame = 0;
+
+function freshState() {
+    power = 100;
+    clockT = 0;
+    camOn = false;
+    activeCam = '1A';
+    doors  = { L: false, R: false };
+    lights = { L: false, R: false };
+    doorCloses = 0;
+    blocks = 0;
+    zeroPowerT = -1;
+    whisperT = 0;
+    logLines = [];
+
+    entities = Object.entries(ROUTES).map(([key, r]) => ({
+        key,
+        side: r.side,
+        label: r.label,
+        path: r.path,
+        idx: -1,              // -1 = 아직 잠들어 있음
+        atDoor: false,
+        doorTimer: 0,
+        moveIn: 12 + Math.random() * 10,
+        aggression: 0
+    }));
+}
+
+// ══════════════ 로그 ══════════════
+function pushLog(text) {
+    logLines.unshift(`${clockLabel()} ${text}`);
+    if (logLines.length > 3) logLines.pop();
+    document.getElementById('log').innerHTML = logLines.join('<br>');
+}
+
+function clockLabel() {
+    const h = Math.floor(clockT / HOUR);
+    const m = Math.floor((clockT % HOUR) / HOUR * 60);
+    const hh = h === 0 ? 12 : h;
+    return `${hh}:${String(m).padStart(2, '0')}`;
+}
+
+// ══════════════ 오디오 ══════════════
+function initAudio() {
+    if (audioCtx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+}
+
+function tone(freq, dur, type, vol, slideTo) {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + dur + 0.05);
+}
+
+function noiseBurst(dur, from, to, vol) {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = audioCtx.createBufferSource();
+    const f = audioCtx.createBiquadFilter();
+    const g = audioCtx.createGain();
+    f.type = 'bandpass';
+    f.frequency.setValueAtTime(from, t);
+    f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.buffer = buf;
+    src.connect(f).connect(g).connect(audioCtx.destination);
+    src.start(t);
+}
+
+const sfx = {
+    doorClose: () => { tone(70, 0.22, 'square', 0.16, 42); noiseBurst(0.16, 900, 180, 0.1); },
+    doorOpen:  () => { tone(52, 0.26, 'sawtooth', 0.1, 88); },
+    click:     () => tone(1100, 0.05, 'square', 0.05, 1500),
+    camSwitch: () => noiseBurst(0.14, 2600, 700, 0.09),
+    footstep:  () => { tone(58, 0.14, 'sine', 0.13, 38); },
+    bang:      () => { noiseBurst(0.4, 420, 70, 0.3); tone(44, 0.34, 'square', 0.2, 28); },
+    scream:    () => { noiseBurst(1.3, 1500, 190, 0.38); tone(180, 1.1, 'sawtooth', 0.14, 60); },
+    alarm:     () => { tone(880, 0.5, 'square', 0.1, 440); }
+};
+
+// ══════════════ 조작 ══════════════
+function toggleDoor(side) {
+    if (!running || power <= 0) return;
+    doors[side] = !doors[side];
+    document.getElementById('door' + side).classList.toggle('door-on', doors[side]);
+    if (doors[side]) {
+        doorCloses++;
+        sfx.doorClose();
+        // 문 앞에 있던 존재는 물러난다
+        const e = entities.find(x => x.side === side && x.atDoor);
+        if (e) {
+            retreat(e);
+            blocks++;
+            pushLog(`${e.label}이(가) 물러났습니다`);
+        }
+    } else {
+        sfx.doorOpen();
+    }
+}
+
+function toggleLight(side) {
+    if (!running || power <= 0) return;
+    lights[side] = !lights[side];
+    document.getElementById('light' + side).classList.toggle('on', lights[side]);
+    sfx.click();
+
+    if (lights[side]) {
+        const e = entities.find(x => x.side === side && x.atDoor);
+        if (e) {
+            sfx.alarm();
+            pushLog(`문 앞에 ${e.label}이(가) 서 있습니다`);
+        }
+    }
+}
+
+function toggleCam() {
+    if (!running || power <= 0) return;
+    camOn = !camOn;
+    const b = document.getElementById('camToggle');
+    b.classList.toggle('on', camOn);
+    b.textContent = camOn ? 'CCTV 끄기' : 'CCTV 켜기';
+    sfx.camSwitch();
+}
+
+function selectCam(id) {
+    if (!running || power <= 0) return;
+    if (!camOn) toggleCam();
+    activeCam = id;
+    sfx.camSwitch();
+    renderCamButtons();
+}
+
+function renderCamButtons() {
+    const grid = document.getElementById('camGrid');
+    if (!grid.children.length) {
+        CAMS.forEach(c => {
+            const b = document.createElement('button');
+            b.id = 'cam-' + c.id;
+            b.onclick = () => selectCam(c.id);
+            grid.appendChild(b);
+        });
+    }
+    CAMS.forEach(c => {
+        const b = document.getElementById('cam-' + c.id);
+        b.textContent = c.id;
+        b.classList.toggle('on', camOn && activeCam === c.id);
+    });
+}
+
+// ══════════════ 존재의 이동 ══════════════
+function retreat(e) {
+    e.atDoor = false;
+    e.doorTimer = 0;
+    e.idx = Math.max(-1, e.idx - 2);
+    e.moveIn = 7 + Math.random() * 7;
+    e.aggression += 0.16;
+}
+
+function stepEntities(dt) {
+    const hour = clockT / HOUR;
+
+    for (const e of entities) {
+        // 문 앞에 붙은 상태
+        if (e.atDoor) {
+            e.doorTimer -= dt;
+
+            if (doors[e.side]) {              // 닫혀 있으면 물러난다
+                retreat(e);
+                blocks++;
+                continue;
+            }
+            if (e.doorTimer <= 0) {
+                kill(e);
+                return;
+            }
+            if (Math.random() < dt * 1.4) sfx.footstep();
+            continue;
+        }
+
+        e.moveIn -= dt * (1 + hour * 0.22 + e.aggression);
+
+        if (e.moveIn > 0) continue;
+
+        e.idx++;
+        e.moveIn = Math.max(2.4, (6.5 - hour * 0.55) + Math.random() * 3.5 - e.aggression);
+
+        if (e.idx >= e.path.length) {
+            e.atDoor = true;
+            e.doorTimer = Math.max(2.6, 6.2 - hour * 0.5);
+            sfx.bang();
+            pushLog(`${e.side === 'L' ? '좌측' : '우측'}에서 문 두드리는 소리`);
+        } else if (e.idx >= 0) {
+            sfx.footstep();
+            if (camOn && activeCam === e.path[e.idx]) {
+                noiseBurst(0.18, 1800, 500, 0.12);
+            }
+        }
+    }
+}
+
+function entityAtCam(camId) {
+    return entities.find(e => !e.atDoor && e.idx >= 0 && e.path[e.idx] === camId);
+}
+
+// ══════════════ 업데이트 ══════════════
+function update(dt) {
+    clockT += dt;
+
+    if (clockT >= SHIFT_SECONDS) { win(); return; }
+
+    // 전력
+    let draw = DRAIN_IDLE;
+    if (camOn) draw += DRAIN_CAM;
+    if (doors.L) draw += DRAIN_DOOR;
+    if (doors.R) draw += DRAIN_DOOR;
+    if (lights.L) draw += DRAIN_LIGHT;
+    if (lights.R) draw += DRAIN_LIGHT;
+
+    power = Math.max(0, power - draw * dt);
+
+    if (power <= 0) {
+        if (zeroPowerT < 0) {
+            zeroPowerT = 0;
+            doors.L = doors.R = false;
+            lights.L = lights.R = false;
+            camOn = false;
+            syncButtons();
+            pushLog('전력이 끊겼습니다');
+            tone(120, 1.6, 'sine', 0.12, 30);
+        }
+        zeroPowerT += dt;
+        if (zeroPowerT > 5.5) { kill(entities[Math.random() < 0.5 ? 0 : 1], '어둠 속에서'); return; }
+    }
+
+    stepEntities(dt);
+
+    // 속삭임 연출
+    whisperT -= dt;
+    if (whisperT <= 0) {
+        whisperT = 14 + Math.random() * 20;
+        const near = entities.some(e => e.atDoor || e.idx >= e.path.length - 1);
+        if (near) showWhisper();
+    }
+
+    updateHud();
+}
+
+const WHISPERS = [
+    '...누가 있니...',
+    '...문을 열어줘...',
+    '...여기 너무 어두워...',
+    '...전임자도 그랬어...',
+    '...아직 여섯 시가 아니야...'
+];
+
+function showWhisper() {
+    const el = document.getElementById('whisper');
+    el.textContent = WHISPERS[Math.floor(Math.random() * WHISPERS.length)];
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function syncButtons() {
+    document.getElementById('doorL').classList.toggle('door-on', doors.L);
+    document.getElementById('doorR').classList.toggle('door-on', doors.R);
+    document.getElementById('lightL').classList.toggle('on', lights.L);
+    document.getElementById('lightR').classList.toggle('on', lights.R);
+    const b = document.getElementById('camToggle');
+    b.classList.toggle('on', camOn);
+    b.textContent = camOn ? 'CCTV 끄기' : 'CCTV 켜기';
+    renderCamButtons();
+}
+
+function updateHud() {
+    const h = Math.floor(clockT / HOUR);
+    const m = Math.floor((clockT % HOUR) / HOUR * 60);
+    document.getElementById('clock').innerHTML =
+        `${h === 0 ? 12 : h}:${String(m).padStart(2, '0')} <small>AM</small>`;
+
+    const pn = document.getElementById('powerNum');
+    pn.textContent = `전력 ${Math.ceil(power)}%`;
+    pn.className = 'power-num' + (power < 15 ? ' crit' : power < 35 ? ' warn' : '');
+
+    let draw = 1;
+    if (camOn) draw++;
+    if (doors.L) draw++;
+    if (doors.R) draw++;
+    if (lights.L) draw++;
+    if (lights.R) draw++;
+    document.getElementById('drawBars').innerHTML =
+        '사용량 <b>' + '■'.repeat(draw) + '</b>' + '□'.repeat(6 - draw);
+}
+
+// ══════════════ 렌더 ══════════════
+function staticNoise(alpha, size) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    for (let i = 0; i < 340; i++) {
+        const v = Math.random() * 255;
+        ctx.fillStyle = `rgb(${v},${v},${v})`;
+        ctx.fillRect(Math.random() * W, Math.random() * H, size, size);
+    }
+    ctx.restore();
+}
+
+function scanlines() {
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+}
+
+function vignette(strength) {
+    const g = ctx.createRadialGradient(W/2, H/2, H*0.24, W/2, H/2, H*0.86);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, `rgba(0,0,0,${strength})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+}
+
+function drawSilhouette(x, baseY, scale, crawl) {
+    ctx.save();
+    ctx.translate(x, baseY);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = 'rgba(0,0,0,0.93)';
+
+    if (crawl) {
+        ctx.beginPath();
+        ctx.ellipse(0, -18, 46, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-40, -26, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(10, -20, 12, 22);
+        ctx.fillRect(28, -16, 10, 18);
+    } else {
+        ctx.beginPath();          // 몸통
+        ctx.moveTo(-22, 0);
+        ctx.quadraticCurveTo(-26, -78, -12, -104);
+        ctx.lineTo(12, -104);
+        ctx.quadraticCurveTo(26, -78, 22, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();          // 머리
+        ctx.ellipse(0, -118, 17, 21, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-34, -96, 13, 62);   // 팔
+        ctx.fillRect(21, -96, 13, 62);
+    }
+
+    // 눈
+    ctx.fillStyle = 'rgba(190, 40, 40, 0.9)';
+    const ey = crawl ? -30 : -122;
+    const ex = crawl ? -40 : 0;
+    ctx.beginPath();
+    ctx.arc(ex - 5, ey, 2.4, 0, Math.PI * 2);
+    ctx.arc(ex + 5, ey, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawCamFeed() {
+    const cam = CAMS.find(c => c.id === activeCam);
+    const flick = 0.72 + Math.random() * 0.28;
+
+    ctx.fillStyle = '#0a0d0b';
+    ctx.fillRect(0, 0, W, H);
+
+    // 바닥/천장 원근
+    ctx.fillStyle = `rgba(28,36,30,${flick})`;
+    ctx.beginPath();
+    ctx.moveTo(0, H); ctx.lineTo(W, H);
+    ctx.lineTo(W * 0.72, H * 0.58); ctx.lineTo(W * 0.28, H * 0.58);
+    ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = `rgba(20,26,22,${flick})`;
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(W, 0);
+    ctx.lineTo(W * 0.72, H * 0.42); ctx.lineTo(W * 0.28, H * 0.42);
+    ctx.closePath(); ctx.fill();
+
+    // 좌우 벽
+    ctx.fillStyle = `rgba(24,31,27,${flick})`;
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(W * 0.28, H * 0.42);
+    ctx.lineTo(W * 0.28, H * 0.58); ctx.lineTo(0, H);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(W, 0); ctx.lineTo(W * 0.72, H * 0.42);
+    ctx.lineTo(W * 0.72, H * 0.58); ctx.lineTo(W, H);
+    ctx.closePath(); ctx.fill();
+
+    // 끝 벽
+    ctx.fillStyle = `rgba(34,42,36,${flick})`;
+    ctx.fillRect(W * 0.28, H * 0.42, W * 0.44, H * 0.16);
+
+    // 문틀 몇 개
+    ctx.fillStyle = 'rgba(12,16,13,0.8)';
+    ctx.fillRect(W * 0.18, H * 0.34, 34, H * 0.3);
+    ctx.fillRect(W * 0.78, H * 0.34, 34, H * 0.3);
+
+    // 존재
+    const e = entityAtCam(activeCam);
+    if (e) {
+        const crawl = e.key === 'grandma';
+        drawSilhouette(W * 0.5 + (Math.random() - 0.5) * 6, H * 0.6, 1.25, crawl);
+        if (Math.random() < 0.22) {      // 간섭
+            ctx.fillStyle = 'rgba(200,200,200,0.06)';
+            ctx.fillRect(0, Math.random() * H, W, 18);
+        }
+    }
+
+    staticNoise(e ? 0.3 : 0.17, 2);
+    scanlines();
+    vignette(0.72);
+
+    // 채널 정보
+    ctx.font = '15px Consolas, monospace';
+    ctx.fillStyle = 'rgba(190,210,190,0.75)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`CAM ${cam.id}  ${cam.name}`, 22, H - 58);
+    ctx.fillStyle = Math.floor(Date.now() / 600) % 2 ? 'rgba(210,70,70,0.9)' : 'rgba(90,30,30,0.5)';
+    ctx.beginPath();
+    ctx.arc(W - 36, H - 63, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(190,210,190,0.6)';
+    ctx.textAlign = 'right';
+    ctx.fillText('REC', W - 52, H - 58);
+}
+
+function drawOffice() {
+    const dead = power <= 0;
+    const base = dead ? 0.1 : 0.34;
+
+    ctx.fillStyle = '#05060a';
+    ctx.fillRect(0, 0, W, H);
+
+    // 뒷벽
+    ctx.fillStyle = `rgba(22,24,30,${base + 0.3})`;
+    ctx.fillRect(W * 0.16, H * 0.12, W * 0.68, H * 0.74);
+
+    // 책상
+    ctx.fillStyle = `rgba(16,18,22,${base + 0.5})`;
+    ctx.fillRect(0, H * 0.78, W, H * 0.22);
+    ctx.fillStyle = `rgba(30,34,40,${base + 0.3})`;
+    ctx.fillRect(0, H * 0.78, W, 6);
+
+    // 책상 위 잡동사니
+    ctx.fillStyle = `rgba(40,44,50,${base + 0.35})`;
+    ctx.fillRect(W * 0.08, H * 0.82, 70, 26);      // 컵
+    ctx.fillRect(W * 0.80, H * 0.81, 96, 32);      // 서류
+    ctx.fillStyle = `rgba(90,70,40,${base + 0.2})`;
+    ctx.fillRect(W * 0.81, H * 0.82, 78, 5);
+
+    // 좌우 출입구
+    for (const side of ['L', 'R']) {
+        const dx = side === 'L' ? W * 0.055 : W * 0.855;
+        const lit = lights[side] && !dead;
+        const shut = doors[side];
+
+        // 문틀
+        ctx.fillStyle = `rgba(10,11,14,0.95)`;
+        ctx.fillRect(dx - 12, H * 0.2, W * 0.09 + 24, H * 0.6);
+
+        if (shut) {
+            // 닫힌 셔터
+            ctx.fillStyle = `rgba(34,32,34,${base + 0.5})`;
+            ctx.fillRect(dx, H * 0.22, W * 0.09, H * 0.56);
+            ctx.strokeStyle = `rgba(14,14,16,0.8)`;
+            ctx.lineWidth = 2;
+            for (let y = H * 0.22; y < H * 0.78; y += 13) {
+                ctx.beginPath();
+                ctx.moveTo(dx, y); ctx.lineTo(dx + W * 0.09, y);
+                ctx.stroke();
+            }
+        } else if (lit) {
+            // 불 켜진 복도
+            const g = ctx.createLinearGradient(dx, H * 0.2, dx, H * 0.8);
+            g.addColorStop(0, 'rgba(120,124,110,0.55)');
+            g.addColorStop(1, 'rgba(40,42,38,0.5)');
+            ctx.fillStyle = g;
+            ctx.fillRect(dx, H * 0.22, W * 0.09, H * 0.56);
+
+            const e = entities.find(x => x.side === side && x.atDoor);
+            if (e) {
+                drawSilhouette(dx + W * 0.045, H * 0.77, 0.94, e.key === 'grandma');
+                if (Math.random() < 0.3) {
+                    ctx.fillStyle = 'rgba(160,20,20,0.07)';
+                    ctx.fillRect(0, 0, W, H);
+                }
+            }
+        } else {
+            ctx.fillStyle = 'rgba(4,4,6,0.96)';
+            ctx.fillRect(dx, H * 0.22, W * 0.09, H * 0.56);
+        }
+    }
+
+    // 꺼진 모니터
+    ctx.fillStyle = `rgba(8,10,13,${base + 0.55})`;
+    ctx.fillRect(W * 0.3, H * 0.3, W * 0.4, H * 0.4);
+    ctx.strokeStyle = `rgba(28,32,38,${base + 0.4})`;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(W * 0.3, H * 0.3, W * 0.4, H * 0.4);
+    ctx.font = '14px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = dead ? 'rgba(90,40,40,0.5)' : 'rgba(70,90,75,0.45)';
+    ctx.fillText(dead ? 'NO SIGNAL' : 'STANDBY', W * 0.5, H * 0.5);
+
+    if (dead) {
+        // 전력 끊김 연출
+        ctx.fillStyle = `rgba(0,0,0,${0.35 + Math.sin(zeroPowerT * 5) * 0.2})`;
+        ctx.fillRect(0, 0, W, H);
+    }
+
+    staticNoise(0.05, 1);
+    scanlines();
+    vignette(0.85);
+}
+
+function draw() {
+    if (camOn && power > 0) drawCamFeed();
+    else drawOffice();
+
+    // 문 앞 위협 시 붉은 테두리
+    const threat = entities.some(e => e.atDoor && !doors[e.side]);
+    if (threat) {
+        const p = 0.3 + 0.35 * Math.abs(Math.sin(Date.now() / 260));
+        ctx.strokeStyle = `rgba(170,30,30,${p})`;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(4, 4, W - 8, H - 8);
+    }
+}
+
+// ══════════════ 결말 ══════════════
+function kill(e, causeText) {
+    running = false;
+
+    document.getElementById('deathCause').textContent =
+        causeText ? `${causeText} 무언가 당신을 붙잡았습니다`
+                  : `${e.side === 'L' ? '좌측' : '우측'} 문이 열려 있었습니다`;
+    document.getElementById('deathTime').textContent = clockLabel() + ' AM';
+    document.getElementById('deathPower').textContent = Math.ceil(power) + '%';
+
+    sfx.scream();
+    playScare(e && e.key === 'grandma');
+}
+
+function playScare(crawl) {
+    const el = document.getElementById('scare');
+    el.classList.add('show');
+
+    let frames = 0;
+    const tick = () => {
+        sctx.fillStyle = '#120000';
+        sctx.fillRect(0, 0, W, H);
+
+        sctx.save();
+        sctx.translate(W / 2, H * 0.96);
+        const s = 3.6 + Math.sin(frames * 0.7) * 0.25;
+        sctx.scale(s, s);
+        sctx.fillStyle = '#000';
+        sctx.beginPath();
+        sctx.ellipse(0, -60, 62, 78, 0, 0, Math.PI * 2);
+        sctx.fill();
+        sctx.beginPath();
+        sctx.ellipse(0, -132, 40, 48, 0, 0, Math.PI * 2);
+        sctx.fill();
+        // 눈
+        sctx.fillStyle = `rgba(255,${40 + Math.random() * 60},40,0.95)`;
+        sctx.beginPath();
+        sctx.arc(-14, -140, 6.5, 0, Math.PI * 2);
+        sctx.arc(14, -140, 6.5, 0, Math.PI * 2);
+        sctx.fill();
+        // 입
+        sctx.fillStyle = '#1a0000';
+        sctx.beginPath();
+        sctx.ellipse(0, -112, 15, 9 + Math.sin(frames) * 4, 0, 0, Math.PI * 2);
+        sctx.fill();
+        sctx.restore();
+
+        // 노이즈
+        sctx.globalAlpha = 0.28;
+        for (let i = 0; i < 400; i++) {
+            const v = Math.random() * 255;
+            sctx.fillStyle = `rgb(${v},${v * 0.2},${v * 0.2})`;
+            sctx.fillRect(Math.random() * W, Math.random() * H, 3, 3);
+        }
+        sctx.globalAlpha = 1;
+
+        frames++;
+        if (frames < 26) requestAnimationFrame(tick);
+        else {
+            el.classList.remove('show');
+            document.getElementById('deathScreen').classList.remove('gone');
+        }
+    };
+    tick();
+}
+
+function win() {
+    running = false;
+    document.getElementById('winPower').textContent = Math.ceil(power) + '%';
+    document.getElementById('winDoors').textContent = doorCloses + '회';
+    document.getElementById('winBlocks').textContent = blocks + '회';
+    document.getElementById('winScreen').classList.remove('gone');
+    tone(523, 0.5, 'sine', 0.1);
+    setTimeout(() => tone(784, 0.7, 'sine', 0.1), 260);
+}
+
+// ══════════════ 흐름 ══════════════
+function startShift() {
+    initAudio();
+    document.getElementById('startScreen').classList.add('gone');
+    freshState();
+    syncButtons();
+    updateHud();
+    pushLog('근무를 시작했습니다');
+    running = true;
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
+}
+
+function restart() {
+    document.getElementById('deathScreen').classList.add('gone');
+    document.getElementById('winScreen').classList.add('gone');
+    startShift();
+}
+
+function loop(now) {
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+    if (running) update(dt);
+    draw();
+    if (running) requestAnimationFrame(loop);
+}
+
+// 키보드 단축키
+document.addEventListener('keydown', ev => {
+    if (!running) return;
+    const k = ev.key.toLowerCase();
+    if (k === 'a') toggleDoor('L');
+    else if (k === 'd') toggleDoor('R');
+    else if (k === 'q') toggleLight('L');
+    else if (k === 'e') toggleLight('R');
+    else if (k === ' ') { ev.preventDefault(); toggleCam(); }
+    else if ('123456'.includes(k)) selectCam(CAMS[+k - 1].id);
+});
+
+// 초기 화면
+freshState();
+renderCamButtons();
+draw();
+</script>
+</body>
+</html>
