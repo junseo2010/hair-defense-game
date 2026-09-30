@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>탈모 예방 대작전 - Hair Defense Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .game-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .game-header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-header h1 {
+            font-size: 2.5em;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .game-header .subtitle {
+            color: #a0a0a0;
+            font-size: 1.1em;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card .stat-icon {
+            font-size: 2em;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.9em;
+            color: #a0a0a0;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .stat-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .health-fill { background: linear-gradient(90deg, #ff4757, #ff6b81); }
+        .stress-fill { background: linear-gradient(90deg, #ffa502, #ff6348); }
+        .nutrition-fill { background: linear-gradient(90deg, #2ed573, #7bed9f); }
+        .circulation-fill { background: linear-gradient(90deg, #1e90ff, #70a1ff); }
+
+        .character-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .character-avatar {
+            font-size: 6em;
+            margin-bottom: 15px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .hair-status {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+
+        .hair-description {
+            color: #a0a0a0;
+            font-size: 1em;
+        }
+
+        .action-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .action-panel h2 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .action-btn .btn-icon {
+            font-size: 2em;
+        }
+
+        .action-btn .btn-effect {
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+
+        .event-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 100px;
+        }
+
+        .event-panel h3 {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .event-message {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #e0e0e0;
+        }
+
+        .day-counter {
+            text-align: center;
+            font-size: 1.5em;
+            color: #ffd700;
+            margin-bottom: 20px;
+        }
+
+        .game-over {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .game-over-content {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-over-content h2 {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        .game-over-content p {
+            font-size: 1.3em;
+            margin-bottom: 30px;
+            color: #a0a0a0;
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 15px 40px;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .win { color: #2ed573; }
+        .lose { color: #ff4757; }
+
+        .progress-indicator {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #a0a0a0;
+        }
+
+        .mini-game {
+            display: none;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 2px solid #ffd700;
+        }
+
+        .mini-game h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+        }
+
+        .massage-area {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, #ff9ff3 0%, #f368e0 100%);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            user-select: none;
+        }
+
+        .massage-area:active {
+            transform: scale(0.95);
+        }
+
+        .massage-score {
+            font-size: 1.5em;
+            color: #ffd700;
+        }
+
+        .combo-display {
+            font-size: 1.2em;
+            color: #ff6b81;
+            margin-top: 10px;
+            min-height: 1.5em;
+        }
+
+        .achievement-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+            color: #1a1a2e;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: bold;
+            transform: translateX(400px);
+            transition: transform 0.5s;
+            z-index: 1001;
+        }
+
+        .achievement-popup.show {
+            transform: translateX(0);
+        }
+
+        .log-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9em;
+            color: #a0a0a0;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry.positive { color: #2ed573; }
+        .log-entry.negative { color: #ff4757; }
+        .log-entry.neutral { color: #70a1ff; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>탈모 예방 대작전</h1>
+            <p class="subtitle">건강한 머리카락을 위한 30일 챌린지!</p>
+        </div>
+
+        <div class="day-counter">
+            📅 Day <span id="day">1</span> / 30
+        </div>
+
+        <div class="progress-indicator">
+            목표: 30일 동안 모발 건강 70 이상 유지하기
+        </div>
+
+        <div class="stats-panel">
+            <div class="stat-card">
+                <div class="stat-icon">💇</div>
+                <div class="stat-label">모발 건강</div>
+                <div class="stat-value" id="healthValue">80</div>
+                <div class="stat-bar">
+                    <div class="stat-bar-fill health-fill" id="healthBar" style="width: 80%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">😰</div>
+                <div class="stat-label">스트레스</div>
+                <div class="stat-value" id="stressValue">30</div>
+                <div class="stat-bar">
+                    <div class="stat-bar-fill stress-fill" id="stressBar" style="width: 30%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🥗</div>
+                <div class="stat-label">영양 상태</div>
+                <div class="stat-value" id="nutritionValue">70</div>
+                <div class="stat-bar">
+                    <div class="stat-bar-fill nutrition-fill" id="nutritionBar" style="width: 70%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💆</div>
+                <div class="stat-label">두피 혈액순환</div>
+                <div class="stat-value" id="circulationValue">60</div>
+                <div class="stat-bar">
+                    <div class="stat-bar-fill circulation-fill" id="circulationBar" style="width: 60%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="character-panel">
+            <div class="character-avatar" id="characterAvatar">👨</div>
+            <div class="hair-status" id="hairStatus">건강한 모발</div>
+            <div class="hair-description" id="hairDescription">두피가 건강하고 머리카락이 윤기가 흐릅니다.</div>
+        </div>
+
+        <div class="mini-game" id="massageGame">
+            <h3>💆 두피 마사지 미니게임</h3>
+            <p>두피를 클릭해서 마사지하세요! 콤보를 쌓으면 보너스!</p>
+            <div class="massage-area" id="massageArea">👆</div>
+            <div class="massage-score">점수: <span id="massageScore">0</span></div>
+            <div class="combo-display" id="comboDisplay"></div>
+        </div>
+
+        <div class="action-panel">
+            <h2>🎯 오늘의 행동</h2>
+            <div class="action-buttons">
+                <button class="action-btn" onclick="doAction('exercise')">
+                    <span class="btn-icon">🏃</span>
+                    <span>운동하기</span>
+                    <span class="btn-effect">스트레스 -15, 혈액순환 +10</span>
+                </button>
+                <button class="action-btn" onclick="doAction('diet')">
+                    <span class="btn-icon">🥗</span>
+                    <span>건강한 식사</span>
+                    <span class="btn-effect">영양 +20, 모발 건강 +5</span>
+                </button>
+                <button class="action-btn" onclick="doAction('sleep')">
+                    <span class="btn-icon">😴</span>
+                    <span>충분한 수면</span>
+                    <span class="btn-effect">스트레스 -20, 모발 건강 +10</span>
+                </button>
+                <button class="action-btn" onclick="doAction('massage')">
+                    <span class="btn-icon">💆</span>
+                    <span>두피 마사지</span>
+                    <span class="btn-effect">혈액순환 +15, 스트레스 -10</span>
+                </button>
+                <button class="action-btn" onclick="doAction('shampoo')">
+                    <span class="btn-icon">🧴</span>
+                    <span>두피 관리</span>
+                    <span class="btn-effect">모발 건강 +15, 영양 -5</span>
+                </button>
+                <button class="action-btn" onclick="doAction('nextDay')">
+                    <span class="btn-icon">⏭️</span>
+                    <span>다음 날로</span>
+                    <span class="btn-effect">시간이 지납니다...</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="event-panel">
+            <h3>📢 이벤트 & 알림</h3>
+            <div class="event-message" id="eventMessage">
+                탈모 예방 대작전에 오신 것을 환영합니다! 건강한 모발을 위해 노력해보세요!
+            </div>
+            <div class="log-panel" id="logPanel">
+                <div class="log-entry neutral">게임 시작! 30일 챌린지 시작!</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <h2 id="gameOverTitle">게임 종료</h2>
+            <p id="gameOverMessage">결과 메시지</p>
+            <button class="restart-btn" onclick="restartGame()">다시 시작</button>
+        </div>
+    </div>
+
+    <div class="achievement-popup" id="achievementPopup">
+        🏆 업적 달성!
+    </div>
+
+    <script>
+        // 게임 상태
+        let gameState = {
+            day: 1,
+            health: 80,
+            stress: 30,
+            nutrition: 70,
+            circulation: 60,
+            actionsToday: 0,
+            maxActionsPerDay: 3,
+            gameOver: false,
+            massageScore: 0,
+            combo: 0,
+            lastClickTime: 0,
+            achievements: []
+        };
+
+        // 랜덤 이벤트
+        const randomEvents = [
+            { message: "📢 중요한 마감이 다가옵니다! 스트레스가 증가할 수 있어요.", stress: 10 },
+            { message: "🎉 좋은 소식이 들려왔습니다! 스트레스가 감소합니다.", stress: -10 },
+            { message: "🌧️ 날씨가 흐립니다. 두피 상태에 영향을 줄 수 있어요.", health: -5 },
+            { message: "☀️ 맑은 날씨! 기분이 좋아집니다.", stress: -5 },
+            { message: "💼 회식 제안이 있습니다. 영양 관리에 주의하세요.", nutrition: -10 },
+            { message: "🏥 건강검진 결과가 좋았습니다! 모발 건강이 좋아집니다.", health: 10 },
+            { message: "📱 SNS에 시간을 너무 많이 썼습니다. 스트레스 증가!", stress: 8 },
+            { message: "🎵 좋은 음악을 들었습니다. 스트레스 해소!", stress: -8 }
+        ];
+
+        // 업적
+        const achievements = {
+            firstMassage: { name: "첫 마사지", desc: "두피 마사지 미니게임 첫 플레이", unlocked: false },
+            combo10: { name: "콤보 마스터", desc: "10콤보 달성", unlocked: false },
+            healthyHair: { name: "건강한 모발", desc: "모발 건강 90 이상 유지", unlocked: false },
+            survivor: { name: "생존자", desc: "30일 생존", unlocked: false }
+        };
+
+        // 게임 시작
+        function initGame() {
+            updateUI();
+            showEvent("탈모 예방 대작전 시작! 건강한 모발을 위해 노력하세요!");
+        }
+
+        // UI 업데이트
+        function updateUI() {
+            document.getElementById('day').textContent = gameState.day;
+            document.getElementById('healthValue').textContent = Math.round(gameState.health);
+            document.getElementById('stressValue').textContent = Math.round(gameState.stress);
+            document.getElementById('nutritionValue').textContent = Math.round(gameState.nutrition);
+            document.getElementById('circulationValue').textContent = Math.round(gameState.circulation);
+
+            document.getElementById('healthBar').style.width = gameState.health + '%';
+            document.getElementById('stressBar').style.width = gameState.stress + '%';
+            document.getElementById('nutritionBar').style.width = gameState.nutrition + '%';
+            document.getElementById('circulationBar').style.width = gameState.circulation + '%';
+
+            updateCharacter();
+            checkAchievements();
+        }
+
+        // 캐릭터 상태 업데이트
+        function updateCharacter() {
+            const avatar = document.getElementById('characterAvatar');
+            const status = document.getElementById('hairStatus');
+            const description = document.getElementById('hairDescription');
+
+            if (gameState.health >= 90) {
+                avatar.textContent = '👨';
+                status.textContent = '완벽한 모발!';
+                status.className = 'hair-status win';
+                description.textContent = '머리카락이 윤기가 흐르고 두피가 매우 건강합니다!';
+            } else if (gameState.health >= 70) {
+                avatar.textContent = '👨';
+                status.textContent = '건강한 모발';
+                status.className = 'hair-status win';
+                description.textContent = '두피가 건강하고 머리카락이 윤기가 흐릅니다.';
+            } else if (gameState.health >= 50) {
+                avatar.textContent = '🧑';
+                status.textContent = '보통 모발';
+                status.className = 'hair-status';
+                description.textContent = '약간의 탈모 증상이 보이기 시작합니다.';
+            } else if (gameState.health >= 30) {
+                avatar.textContent = '👴';
+                status.textContent = '탈모 진행 중';
+                status.className = 'hair-status lose';
+                description.textContent = '머리카락이 많이 빠지고 두피가 보입니다.';
+            } else {
+                avatar.textContent = '🧑‍🦲';
+                status.textContent = '심각한 탈모';
+                status.className = 'hair-status lose';
+                description.textContent = '대부분의 머리카락이 빠졌습니다...';
+            }
+        }
+
+        // 행동 실행
+        function doAction(action) {
+            if (gameState.gameOver) return;
+            if (gameState.actionsToday >= gameState.maxActionsPerDay && action !== 'nextDay') {
+                showEvent("오늘은 더 이상 행동할 수 없습니다. 다음 날로 넘어가세요!");
+                return;
+            }
+
+            let message = "";
+            let logClass = "neutral";
+
+            switch(action) {
+                case 'exercise':
+                    gameState.stress = Math.max(0, gameState.stress - 15);
+                    gameState.circulation = Math.min(100, gameState.circulation + 10);
+                    gameState.health = Math.min(100, gameState.health + 3);
+                    message = "🏃 운동을 했습니다! 스트레스가 해소되고 혈액순환이 좋아졌습니다.";
+                    logClass = "positive";
+                    break;
+                case 'diet':
+                    gameState.nutrition = Math.min(100, gameState.nutrition + 20);
+                    gameState.health = Math.min(100, gameState.health + 5);
+                    message = "🥗 건강한 식사를 했습니다! 영양 상태가 좋아졌습니다.";
+                    logClass = "positive";
+                    break;
+                case 'sleep':
+                    gameState.stress = Math.max(0, gameState.stress - 20);
+                    gameState.health = Math.min(100, gameState.health + 10);
+                    message = "😴 충분한 수면을 취했습니다! 스트레스가 크게 감소했습니다.";
+                    logClass = "positive";
+                    break;
+                case 'massage':
+                    startMassageGame();
+                    return;
+                case 'shampoo':
+                    gameState.health = Math.min(100, gameState.health + 15);
+                    gameState.nutrition = Math.max(0, gameState.nutrition - 5);
+                    message = "🧴 두피 관리를 했습니다! 모발 건강이 좋아졌습니다.";
+                    logClass = "positive";
+                    break;
+                case 'nextDay':
+                    nextDay();
+                    return;
+            }
+
+            gameState.actionsToday++;
+            showEvent(message);
+            addLogEntry(message, logClass);
+            updateUI();
+            checkGameOver();
+        }
+
+        // 다음 날로
+        function nextDay() {
+            gameState.day++;
+            gameState.actionsToday = 0;
+
+            // 자연적인 변화
+            gameState.stress = Math.min(100, gameState.stress + 5);
+            gameState.nutrition = Math.max(0, gameState.nutrition - 3);
+            gameState.circulation = Math.max(0, gameState.circulation - 2);
+
+            // 건강 상태에 따른 자연 회복/악화
+            if (gameState.stress > 70) {
+                gameState.health = Math.max(0, gameState.health - 5);
+            }
+            if (gameState.nutrition < 30) {
+                gameState.health = Math.max(0, gameState.health - 3);
+            }
+            if (gameState.circulation < 30) {
+                gameState.health = Math.max(0, gameState.health - 2);
+            }
+
+            // 랜덤 이벤트
+            if (Math.random() < 0.4) {
+                const event = randomEvents[Math.floor(Math.random() * randomEvents.length)];
+                if (event.stress) gameState.stress = Math.max(0, Math.min(100, gameState.stress + event.stress));
+                if (event.health) gameState.health = Math.max(0, Math.min(100, gameState.health + event.health));
+                if (event.nutrition) gameState.nutrition = Math.max(0, Math.min(100, gameState.nutrition + event.nutrition));
+                showEvent(event.message);
+                addLogEntry(event.message, "neutral");
+            }
+
+            showEvent(`📅 Day ${gameState.day}가 시작되었습니다!`);
+            updateUI();
+            checkGameOver();
+        }
+
+        // 두피 마사지 미니게임
+        function startMassageGame() {
+            const miniGame = document.getElementById('massageGame');
+            miniGame.style.display = 'block';
+            gameState.massageScore = 0;
+            gameState.combo = 0;
+            document.getElementById('massageScore').textContent = '0';
+            document.getElementById('comboDisplay').textContent = '';
+
+            const massageArea = document.getElementById('massageArea');
+            massageArea.onclick = handleMassageClick;
+
+            showEvent("💆 두피 마사지 미니게임! 두피를 빠르게 클릭하세요!");
+        }
+
+        function handleMassageClick() {
+            const now = Date.now();
+            const timeDiff = now - gameState.lastClickTime;
+
+            if (timeDiff < 500) {
+                gameState.combo++;
+            } else {
+                gameState.combo = 1;
+            }
+
+            gameState.lastClickTime = now;
+            gameState.massageScore += gameState.combo;
+
+            document.getElementById('massageScore').textContent = gameState.massageScore;
+
+            if (gameState.combo >= 5) {
+                document.getElementById('comboDisplay').textContent = `🔥 ${gameState.combo}콤보!`;
+            }
+
+            // 업적 체크
+            if (!achievements.firstMassage.unlocked) {
+                unlockAchievement('firstMassage');
+            }
+            if (gameState.combo >= 10 && !achievements.combo10.unlocked) {
+                unlockAchievement('combo10');
+            }
+
+            // 마사지 효과 적용 (점수에 비례)
+            const bonus = Math.floor(gameState.massageScore / 10);
+            gameState.circulation = Math.min(100, gameState.circulation + bonus);
+            gameState.stress = Math.max(0, gameState.stress - bonus);
+            gameState.health = Math.min(100, gameState.health + Math.floor(bonus / 2));
+
+            // 잠시 후 미니게임 종료
+            if (gameState.massageScore >= 50) {
+                setTimeout(() => {
+                    document.getElementById('massageGame').style.display = 'none';
+                    gameState.actionsToday++;
+                    showEvent(`💆 마사지 완료! 혈액순환 +${bonus}, 스트레스 -${bonus}`);
+                    addLogEntry(`마사지 미니게임 완료! 점수: ${gameState.massageScore}`, "positive");
+                    updateUI();
+                    checkGameOver();
+                }, 1000);
+            }
+        }
+
+        // 업적 시스템
+        function unlockAchievement(id) {
+            achievements[id].unlocked = true;
+            gameState.achievements.push(id);
+            showAchievementPopup(achievements[id].name);
+        }
+
+        function showAchievementPopup(name) {
+            const popup = document.getElementById('achievementPopup');
+            popup.textContent = `🏆 업적 달성: ${name}`;
+            popup.classList.add('show');
+            setTimeout(() => popup.classList.remove('show'), 3000);
+        }
+
+        function checkAchievements() {
+            if (gameState.health >= 90 && !achievements.healthyHair.unlocked) {
+                unlockAchievement('healthyHair');
+            }
+            if (gameState.day >= 30 && !achievements.survivor.unlocked) {
+                unlockAchievement('survivor');
+            }
+        }
+
+        // 이벤트 표시
+        function showEvent(message) {
+            document.getElementById('eventMessage').textContent = message;
+        }
+
+        // 로그 추가
+        function addLogEntry(message, type) {
+            const logPanel = document.getElementById('logPanel');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[Day ${gameState.day}] ${message}`;
+            logPanel.insertBefore(entry, logPanel.firstChild);
+
+            // 로그 제한
+            while (logPanel.children.length > 10) {
+                logPanel.removeChild(logPanel.lastChild);
+            }
+        }
+
+        // 게임 오버 체크
+        function checkGameOver() {
+            if (gameState.health <= 0) {
+                endGame(false, "모발이 모두 빠져버렸습니다... 탈모 예방에 실패했습니다.");
+            } else if (gameState.day > 30) {
+                if (gameState.health >= 70) {
+                    endGame(true, `축하합니다! 30일 동안 건강한 모발을 유지했습니다! 최종 모발 건강: ${Math.round(gameState.health)}`);
+                } else {
+                    endGame(false, `30일이 지났지만 모발 건강이 70 미만입니다... 최종 모발 건강: ${Math.round(gameState.health)}`);
+                }
+            }
+        }
+
+        // 게임 종료
+        function endGame(win, message) {
+            gameState.gameOver = true;
+            const gameOverScreen = document.getElementById('gameOver');
+            const title = document.getElementById('gameOverTitle');
+            const msg = document.getElementById('gameOverMessage');
+
+            title.textContent = win ? '🎉 승리!' : '😢 패배...';
+            title.className = win ? 'win' : 'lose';
+            msg.textContent = message;
+
+            gameOverScreen.style.display = 'flex';
+        }
+
+        // 게임 재시작
+        function restartGame() {
+            gameState = {
+                day: 1,
+                health: 80,
+                stress: 30,
+                nutrition: 70,
+                circulation: 60,
+                actionsToday: 0,
+                maxActionsPerDay: 3,
+                gameOver: false,
+                massageScore: 0,
+                combo: 0,
+                lastClickTime: 0,
+                achievements: []
+            };
+
+            Object.keys(achievements).forEach(key => {
+                achievements[key].unlocked = false;
+            });
+
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('massageGame').style.display = 'none';
+            document.getElementById('logPanel').innerHTML = '<div class="log-entry neutral">게임 재시작! 30일 챌린지 시작!</div>';
+
+            initGame();
+        }
+
+        // 게임 초기화
+        initGame();
+    </script>
+</body>
+</html>
